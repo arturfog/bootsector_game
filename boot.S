@@ -1,3 +1,4 @@
+# based on: https://www.codeproject.com/Articles/664165/Writing-a-boot-loader-in-Assembly-and-C-Part
 .code16                  #generate 16-bit code
 .text                    #executable code location
      .globl _start;
