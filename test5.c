@@ -1,7 +1,7 @@
+/* generate 16 bit code                                                 */
 __asm__(".code16gcc\n");
+/* jump to main function or program code                                */
 __asm__("jmpl $0x0000, $main\n");
-
-// based on: https://www.codeproject.com/Articles/664165/Writing-a-boot-loader-in-Assembly-and-C-Part
 
 #define MAX_COLS     320 /* maximum columns of the screen               */
 #define MAX_ROWS     200 /* maximum rows of the screen                  */
@@ -30,7 +30,7 @@ void printString(const char* pStr) {
 /* interrupt: 0x10                                                      */
 /* we use this function to hit a key to continue by the                 */
 /* user                                                                                    */
-static void getch() {
+void getch() {
      __asm__ __volatile__ (
           "xorw %ax, %ax\n"
           "int $0x16\n"
@@ -44,7 +44,7 @@ static void getch() {
 /* input cx = desired column                                            */
 /* input dx = desired row                                               */
 /* interrupt: 0x10                                                      */
-static void drawPixel(unsigned char color, int col, int row) {
+void drawPixel(unsigned char color, int col, int row) {
      __asm__ __volatile__ (
           "int $0x10" : : "a"(0x0c00 | color), "c"(col), "d"(row)
      );

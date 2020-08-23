@@ -1,7 +1,7 @@
+/* generate 16 bit code                                                 */
 __asm__(".code16gcc\n");
+/* jump to main function or program code                                */
 __asm__("jmpl $0x0000, $main\n");
-
-// based on: https://www.codeproject.com/Articles/664165/Writing-a-boot-loader-in-Assembly-and-C-Part
 
 #define MAX_COLS     320 /* maximum columns of the screen               */
 #define MAX_ROWS     200 /* maximum rows of the screen                  */
@@ -24,17 +24,23 @@ void printString(const char* pStr) {
      }
 }
 
+void printChar(const char c) {
+          __asm__ __volatile__ (
+               "int $0x10" : : "a"(0x0e00 | c), "b"(0x0007)
+          );
+}
+
 /* function to get a keystroke from the keyboard                        */
 /* input ah = 0x00                                                      */
 /* input al = 0x00                                                      */
 /* interrupt: 0x10                                                      */
 /* we use this function to hit a key to continue by the                 */
 /* user                                                                                    */
-static void getch() {
-     __asm__ __volatile__ (
-          "xorw %ax, %ax\n"
-          "int $0x16\n"
-     );
+int getch() {
+    int key = 0;
+     __asm__ __volatile__ ("xorw %ax, %ax");
+     __asm__ __volatile__ ("int $0x16" : "=r" (key));
+     return key;
 }
 
 /* function to print a colored pixel onto the screen                    */
@@ -44,7 +50,7 @@ static void getch() {
 /* input cx = desired column                                            */
 /* input dx = desired row                                               */
 /* interrupt: 0x10                                                      */
-static void drawPixel(unsigned char color, int col, int row) {
+void drawPixel(unsigned char color, int col, int row) {
      __asm__ __volatile__ (
           "int $0x10" : : "a"(0x0c00 | color), "c"(col), "d"(row)
      );
@@ -70,55 +76,37 @@ void initEnvironment() {
      );
 }
 
-/* function to print rectangles in descending order of                  */
-/* their sizes                                                          */
-/* I follow the below sequence                                          */
-/* (left, top)     to (left, bottom)                                    */
-/* (left, bottom)  to (right, bottom)                                   */
-/* (right, bottom) to (right, top)                                      */
-/* (right, top)    to (left, top)                                       */
-void initGraphics() {
-     int i = 0, j = 0;
-     int m = 0;
-     int cnt1 = 0, cnt2 =0;
-     unsigned char color = 10;
+void drawSnake() {
+	int i = 0;
+	unsigned char color = 10;
 
-     for(;;) {
-          if(m < (MAX_ROWS - m)) {
-               ++cnt1;
-          }
-          if(m < (MAX_COLS - m - 3)) {
-               ++cnt2;
-          }
+	int s_x = MAX_COLS/2;
+	int s_y = MAX_ROWS/2;
+	int s_size = 10;
 
-          if(cnt1 != cnt2) {
-               cnt1  = 0;
-               cnt2  = 0;
-               m     = 0;
-               if(++color > 255) color= 0;
+	int key = 0;
+	for(;;) {
+	  initEnvironment();
+          for(i = 0; i < s_size; i++) {
+               drawPixel(color, s_x + i, s_y);
           }
-
-          /* (left, top) to (left, bottom)                              */
-          j = 0;
-          for(i = m; i < MAX_ROWS - m; ++i) {
-               drawPixel(color, j+m, i);
-          }
-          /* (left, bottom) to (right, bottom)                          */
-          for(j = m; j < MAX_COLS - m; ++j) {
-               drawPixel(color, j, i);
-          }
-
-          /* (right, bottom) to (right, top)                            */
-          for(i = MAX_ROWS - m - 1 ; i >= m; --i) {
-               drawPixel(color, MAX_COLS - m - 1, i);
-          }
-          /* (right, top)   to (left, top)                              */
-          for(j = MAX_COLS - m - 1; j >= m; --j) {
-               drawPixel(color, j, m);
-          }
-          m += 6;
-          if(++color > 255)  color = 0;
-     }
+	  key = getch();
+	  key = (key >> 8);
+	  switch(key) {
+		  case 0x4D:
+			s_x++;
+			break;
+		  case 0x4B:
+			s_x--;
+			break;
+		  case 0x48:
+			s_y--;
+			break;
+		  case 0x50:
+		  	s_y++;
+			break;
+	  }
+	}
 }
 
 /* function is boot code and it calls the below functions               */
@@ -129,5 +117,5 @@ void main() {
      printString("Now in bootloader...hit a key to continue\n\r");
      getch();
      initEnvironment();
-     initGraphics();
+     drawSnake();
 }

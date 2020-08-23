@@ -1,3 +1,4 @@
+OUTPUT_FORMAT("elf32-i386");
 ENTRY(main);
 SECTIONS
 {
@@ -9,5 +10,10 @@ SECTIONS
     .sig : AT(0x7DFE)
     {
         SHORT(0xaa55);
+    }
+    /* Remove sections that won't be relevant to us */
+    /DISCARD/ : {
+        *(.eh_frame);
+        *(.comment);
     }
 }
