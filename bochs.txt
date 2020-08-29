@@ -1,5 +1,5 @@
 megs: 32
-floppya: 1_44=game_c.bin, status=inserted
+floppya: 1_44=game.bin, status=inserted
 boot: a
 mouse: enabled=0
 display_library: x

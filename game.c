@@ -15,31 +15,28 @@ __asm__("jmpl $0x0000, $main\n");
 /* this function takes string as an argument and then                   */
 /* prints character by character until it founds null                   */
 /* character                                                            */
-void printString(const char* pStr) {
+/*static void printString(const char* pStr) {
      while(*pStr) {
           __asm__ __volatile__ (
                "int $0x10" : : "a"(0x0e00 | *pStr), "b"(0x0007)
           );
           ++pStr;
      }
-}
-
-void printChar(const char c) {
-          __asm__ __volatile__ (
-               "int $0x10" : : "a"(0x0e00 | c), "b"(0x0007)
-          );
-}
-
+}*/
 /* function to get a keystroke from the keyboard                        */
-/* input ah = 0x00                                                      */
+/* input ah = 0x01 ; do not wait                                        */
 /* input al = 0x00                                                      */
 /* interrupt: 0x10                                                      */
 /* we use this function to hit a key to continue by the                 */
 /* user                                                                                    */
 int getch() {
-    int key = 0;
+    volatile register int key = 0;
+     __asm__ __volatile__ ("xorw %ax, %ax");
+     __asm__ __volatile__ ("int $0x16" : "=r" (key) : "a"(0x0100) );
+     if(key >= 10) {
      __asm__ __volatile__ ("xorw %ax, %ax");
      __asm__ __volatile__ ("int $0x16" : "=r" (key));
+     }
      return key;
 }
 
@@ -50,7 +47,7 @@ int getch() {
 /* input cx = desired column                                            */
 /* input dx = desired row                                               */
 /* interrupt: 0x10                                                      */
-void drawPixel(unsigned char color, int col, int row) {
+static void drawPixel(unsigned char color, int col, int row) {
      __asm__ __volatile__ (
           "int $0x10" : : "a"(0x0c00 | color), "c"(col), "d"(row)
      );
@@ -66,7 +63,7 @@ void drawPixel(unsigned char color, int col, int row) {
 /* input ah = 0x00                                                      */
 /* input al = 0x13                                                      */
 /* interrupt = 0x10                                                     */
-void initEnvironment() {
+static void initEnvironment() {
      /* clear screen                                                    */
      __asm__ __volatile__ (
           "int $0x10" : : "a"(0x03)
@@ -75,8 +72,11 @@ void initEnvironment() {
           "int $0x10" : : "a"(0x0013)
      );
 }
-
-void drawSnake() {
+/* function is boot code and it calls the below functions               */
+/* print a message to the screen to make the user hit the               */
+/* key to proceed further and then once the user hits then              */
+/* it displays rectangles in the descending order                       */
+void main() {
 	int i = 0;
 	unsigned char color = 10;
 
@@ -84,38 +84,49 @@ void drawSnake() {
 	int s_y = MAX_ROWS/2;
 	int s_size = 10;
 
-	int key = 0;
+	volatile int key = 0;
+	volatile int direction = 0;
+
 	for(;;) {
 	  initEnvironment();
           for(i = 0; i < s_size; i++) {
                drawPixel(color, s_x + i, s_y);
           }
+
+	  switch(direction) {
+		  case 1:
+			  s_x++;
+			  break;
+		  case 2:
+			  s_x--;
+			  break;
+	  }
+
 	  key = getch();
+	  if(key) {
 	  key = (key >> 8);
 	  switch(key) {
 		  case 0x4D:
+			direction=1;
 			s_x++;
 			break;
 		  case 0x4B:
+			direction=2;
 			s_x--;
 			break;
 		  case 0x48:
+			direction=3;
 			s_y--;
 			break;
 		  case 0x50:
+			direction=4;
 		  	s_y++;
 			break;
 	  }
+	  key = 0;
+	  }
+	  if(s_x <= 0) { s_x = MAX_COLS - 1; }
+	  if(s_y <= 0) { s_y = MAX_ROWS - 1; }
+	  //for(i = 0; i < 100000; i++){}
 	}
-}
-
-/* function is boot code and it calls the below functions               */
-/* print a message to the screen to make the user hit the               */
-/* key to proceed further and then once the user hits then              */
-/* it displays rectangles in the descending order                       */
-void main() {
-     printString("Now in bootloader...hit a key to continue\n\r");
-     getch();
-     initEnvironment();
-     drawSnake();
 }
