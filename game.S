@@ -1,49 +1,78 @@
-.code16                  #generate 16-bit code
-.text                    #executable code location
+# Memory map
+# 0x00000000	0x000003FF	1 KiB	Real Mode IVT (Interrupt Vector Table)
+# 0x00000500	0x00007BFF	almost 30 KiB	Conventional memory
+# 0x00007C00	0x00007DFF	512 bytes	Your OS BootSector
+# 0x00007E00	0x0007FFFF	480.5 KiB	Conventional memory
+#
+.code16                  # generate 16-bit code
+.text                    # executable code location
      .globl _start;
-_start:                  #code entry point
+_start:                  # code entry point
+     # init variables
+     xor %ecx, %ecx
+     movw mem_seg, %cx
+     movw $160, (%ecx)
+     movw $120, 2(%ecx)
+
      call init_enviroment
-     
-     push col
-     push row
+
+     pushw 2(%ecx)
+     pushw (%ecx)
      call draw_pixel
      pop %cx
      pop %dx
 
      loop:
      call get_key
+     cmpw $0, %ax
 
-     cmp $0x4D, %ah
+     jne got_key
+     movb direction, %ah
+
+     got_key:
+     cmpb $0x4D, %ah
      je move_right
-     cmp $0x4B, %ah
+     cmpb $0x4B, %ah
      je move_left
-     cmp $0x48, %ah
+     cmpb $0x48, %ah
      je move_up
-     cmp $0x50, %ah
+     cmpb $0x50, %ah
      je move_down
      
      jmp loop
 
      move_left:
      dec %cx
+     movb $0x4D, direction
      jmp move
      move_right:
      inc %cx
+     movb $0x4B, direction
      jmp move
      move_up:
      dec %dx
+     movb $0x48, direction
      jmp move
      move_down:
      inc %dx
+     movb $0x50, direction
      jmp move
 
      move:
      push %dx
      push %cx
-     call init_enviroment
+     # call init_enviroment
      call draw_pixel
+
+     # wait
+     mov $3, %cx
+     mov $0, %dx
+     mov $0x86, %ah
+     int $0x15
+
      pop %cx
      pop %dx
+
      jmp loop
      
 # al = character
@@ -90,14 +119,16 @@ get_key:
      mov %sp, %bp
 
      xorw %ax, %ax
-     mov $0x01, %ah
+     movb $1, %ah
      int $0x16
-     cmp %ax, 0
+     
+     cmpw $0, %ax
      je _gk_end
+
      xorw %ax, %ax
      int $0x16
-     _gk_end:
 
+     _gk_end:
      pop %bp
      ret
 
@@ -108,17 +139,17 @@ init_enviroment:
      mov %sp, %bp
      
      # set video mode
-     movb $0x12, %al
+     movb $0x13, %al
      movb $0x00, %ah
      int $0x10
 
      pop %bp
      ret
 
+     mem_seg: .word 0x7E00
+     size: .byte 1
+     direction: .byte 0
 # fill missing bytes
-     row: .word 320
-     col: .word 240
-     size: .word 1
      . = _start + 510      # mov to 510th byte from 0 pos
      .byte 0x55            # append boot signature
      .byte 0xaa            # append boot signature 
