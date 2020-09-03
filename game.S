@@ -15,37 +15,95 @@ _start:                  # code entry point
      movw $160, (%ecx)
      # start_y
      movw $120, 2(%ecx)
+     # make place for queue
+     sub $100, %esp
 
      # set video mode
      call init_enviroment
      call draw_snake
      call draw_fruit
-
+     # main loop
      loop:
-     #
      call wait
+     # store current position
+     call pushq
+     call handle_keypress
+     move:
+     # inc steps
+     xor %eax, %eax
+     movw steps, %ax
+     inc %ax
+     movw %ax, steps
+     #
+     call hit_fruit
+     call draw_snake
+     # clean old pixels after each move
+     clean_pixels:
+     xor %eax, %eax
+     movw steps, %ax
+     cmpw %ax, size
+     jmp loop
+     # dec steps
+     dec %ax
+     movw %ax, steps
+     # steps = size
+     call popq
+     call clear_pixel
+     jmp clean_pixels
+
+# ---------------- functions --------------- #
+pushq:
+     movw qs, %ax
+     cmp $100, %ax
+     jge push_end
+
+     movw $1, (%ebp)
+
+     inc %ax
+     movw %ax, qs
+
+     xor %ecx, %ecx
+     movw mem_seg, %cx
+
+     push_end:
+     ret
+# ----------------------------------------------------
+popq:
+     movw qs, %ax
+     cmp $0, %ax
+     jle pop_end
+
+     movw (%ebp), %bx
+
+     dec %ax
+     movw %ax, qs
+
+     xor %ecx, %ecx
+     movw mem_seg, %cx
+     
+     pop_end:
+     ret
+# ----------------------------------------------------
+wait:
+     # wait
+     mov $3, %cx
+     mov $0, %dx
+     mov $0x86, %ah
+     int $0x15
+     ret
+# ----------------------------------------------------
+handle_keypress:
+     xor %ecx, %ecx
+     movw mem_seg, %cx
+
      call get_key
      cmpw $0, %ax
      # parse key
      jne got_key
      # no key, restore old one
      movb direction, %ah
-     
-     got_key:
-     xor %ecx, %ecx
-     movw mem_seg, %cx
-     
-     # handle step change
-     movb steps, %bl
-     cmp size, %bl
-     jne _check_key
-     # store
-     movw (%ecx), %bx
-     movw %bx, 4(%ecx)
-     movw 2(%ecx), %bx
-     movw %bx, 6(%ecx)
 
-     _check_key:
+     got_key:
      cmpb $0x4D, %ah
      je move_right
      cmpb $0x4B, %ah
@@ -71,38 +129,6 @@ _start:                  # code entry point
      add $1,2(%ecx)
      movb $0x50, direction
 
-     move:
-     call hit_fruit
-     call draw_snake
-
-     # increse steps
-     movb steps, %cl
-     inc %cl
-     mov %cl, steps
-     # handle step change
-     movb steps, %cl
-     cmp size, %cl
-     jge _blank
-     # nothing to do, continue loop
-     jmp loop
-
-     _blank:
-     movb $1, steps
-     call clear_pixel
-     jmp loop
-
-# ---------------- functions --------------- #
-wait:
-     push %bp
-     mov %sp, %bp
-
-     # wait
-     mov $3, %cx
-     mov $0, %dx
-     mov $0x86, %ah
-     int $0x15
-
-     pop %bp
      ret
 # ----------------------------------------------------
 draw_snake:
@@ -123,9 +149,6 @@ draw_snake:
      ret
 # ----------------------------------------------------
 hit_fruit:
-     push %bp
-     mov %sp, %bp
-
      xor %eax, %eax
      xor %ecx, %ecx
      xor %edx, %edx
@@ -137,19 +160,24 @@ hit_fruit:
      xor %ebx, %ebx
      int $0x10
 
+     game_over:
+     # check if hit snake
+     cmp $0x4, %al
+     je game_over
      # check if hit fruit
      cmp $0x3, %al
      jne _hit_fruit_end
-
+     # reset steps
+     movw steps, %ax
+     movw $1, steps
      # increase snake size
      movb size, %cl
      inc %cl
-     movb %cl, size
+     mov %cl, size
      # draw new fruit
      call draw_fruit
 
      _hit_fruit_end:
-     pop %bp
      ret
 # ----------------------------------------------------
 draw_fruit:
@@ -198,7 +226,7 @@ print_character:
 # bh = page number
 # bl = color
     int $0x10
-
+    
     pop %bp
     ret
 # ----------------------------------------------------
@@ -222,9 +250,6 @@ draw_pixel:
      ret
 # ----------------------------------------------------
 get_key:
-     push %bp
-     mov %sp, %bp
-
      xorw %ax, %ax
      movb $0x1, %ah
      int $0x16
@@ -237,28 +262,22 @@ get_key:
 # al = ascii character
 # ah = code of pressed key
      int $0x16
-
      _gk_end:
-     pop %bp
      ret
 # ----------------------------------------------------
 # clean the screen and 
 # set video mode to 320x200
-init_enviroment:
-     push %bp
-     mov %sp, %bp
-     
+init_enviroment:     
      # set video mode
      movb $0x13, %al
      movb $0x00, %ah
      int $0x10
-
-     pop %bp
      ret
 # ----------------------------------------------------
      mem_seg: .word 0x7E00
-     size: .byte 1
-     steps: .byte 1
+     size: .word 1
+     steps: .word 1
+     qs: .word 1
      direction: .byte 0
 # fill missing bytes
      . = _start + 510      # mov to 510th byte from 0 pos
