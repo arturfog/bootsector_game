@@ -132,19 +132,19 @@ handle_keypress:
 
      move_left:
      sub $1,(%ecx)
-     movb $0x4D, direction
+     movb %ah, direction
      jmp move
      move_right:
      add $1,(%ecx)
-     movb $0x4B, direction
+     movb %ah, direction
      jmp move
      move_up:
      sub $1,2(%ecx)
-     movb $0x48, direction
+     movb %ah, direction
      jmp move
      move_down:
      add $1,2(%ecx)
-     movb $0x50, direction
+     movb %ah, direction
      move:
      ret
 # ----------------------------------------------------
@@ -268,15 +268,18 @@ get_key:
      movb $0x1, %ah
      int $0x16
      
-     cmpw $0x0, %ax
-     je _gk_end
+     cmp $0x1,%ah
+     jne _gk
+     xorw %ax, %ax
+     ret
 
+     _gk:
      xorw %ax, %ax
 # get key from keyboard
 # al = ascii character
 # ah = code of pressed key
      int $0x16
-     _gk_end:
+
      ret
 # ----------------------------------------------------
 # clean the screen and 
@@ -293,7 +296,7 @@ init_enviroment:
      qs: .word 0x0
      qstart: .word 0x8
      qend: .word 0x8
-     direction: .byte 0x0
+     direction: .byte 0x48
 # fill missing bytes
      . = _start + 510      # mov to 510th byte from 0 pos
      .byte 0x55            # append boot signature
