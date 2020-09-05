@@ -15,9 +15,6 @@ _start:                  # code entry point
      movw $160, (%ecx)
      # start_y
      movw $120, 2(%ecx)
-     # make place for queue
-     sub $100, %esp
-
      # set video mode
      call init_enviroment
      call draw_snake
@@ -28,59 +25,79 @@ _start:                  # code entry point
      # store current position
      call pushq
      call handle_keypress
-     move:
-     # inc steps
-     xor %eax, %eax
-     movw steps, %ax
-     inc %ax
-     movw %ax, steps
-     #
      call hit_fruit
      call draw_snake
      # clean old pixels after each move
      clean_pixels:
      xor %eax, %eax
-     movw steps, %ax
-     cmpw %ax, size
-     jmp loop
-     # dec steps
-     dec %ax
-     movw %ax, steps
-     # steps = size
+     movw qs, %ax
+     cmpw size, %ax
+     jle loop
      call popq
      call clear_pixel
      jmp clean_pixels
 
 # ---------------- functions --------------- #
 pushq:
+     # --------------------------
+     # check for free space in queue
      movw qs, %ax
-     cmp $100, %ax
-     jge push_end
-
-     movw $1, (%ebp)
-
-     inc %ax
-     movw %ax, qs
-
+     cmp $200, %ax
+     je push_end
+     # --------------------------
+     # store current pos in queue
      xor %ecx, %ecx
      movw mem_seg, %cx
-
+     #
+     xor %ebx, %ebx
+     movb (%ecx), %bl
+     movb 2(%ecx), %bh
+     
+     movw mem_seg, %cx
+     add qend, %cx
+     movw %bx, (%ecx)
+     # --------------------------
+     movw qend, %ax
+     add $2, %ax
+     movw %ax, qend
+     # --------------------------
+     # increase queue size
+     movw qs, %ax
+     inc %ax
+     movw %ax, qs
+     # --------------------------
      push_end:
      ret
 # ----------------------------------------------------
 popq:
+     # --------------------------
+     # check if any items are in queue
      movw qs, %ax
      cmp $0, %ax
-     jle pop_end
-
-     movw (%ebp), %bx
-
-     dec %ax
-     movw %ax, qs
-
+     je pop_end
+     # --------------------------
+     # move item back
      xor %ecx, %ecx
      movw mem_seg, %cx
-     
+     add qstart, %cx
+     #
+     xor %ebx, %ebx
+     movw (%ecx), %bx
+     movw $0xFFFF, (%ecx)
+
+     movw mem_seg, %cx
+     movb %bl, 4(%ecx)
+     movb %bh, 6(%ecx)
+     # --------------------------
+     movw qstart, %ax
+     add $2, %ax
+     movw %ax, qstart
+     # --------------------------
+     # decrease queue size
+     movw qs, %ax
+     dec %ax
+     movw %ax, qs
+     # --------------------------
      pop_end:
      ret
 # ----------------------------------------------------
@@ -128,7 +145,7 @@ handle_keypress:
      move_down:
      add $1,2(%ecx)
      movb $0x50, direction
-
+     move:
      ret
 # ----------------------------------------------------
 draw_snake:
@@ -167,9 +184,6 @@ hit_fruit:
      # check if hit fruit
      cmp $0x3, %al
      jne _hit_fruit_end
-     # reset steps
-     movw steps, %ax
-     movw $1, steps
      # increase snake size
      movb size, %cl
      inc %cl
@@ -275,10 +289,11 @@ init_enviroment:
      ret
 # ----------------------------------------------------
      mem_seg: .word 0x7E00
-     size: .word 1
-     steps: .word 1
-     qs: .word 1
-     direction: .byte 0
+     size: .word 0x1
+     qs: .word 0x0
+     qstart: .word 0x8
+     qend: .word 0x8
+     direction: .byte 0x0
 # fill missing bytes
      . = _start + 510      # mov to 510th byte from 0 pos
      .byte 0x55            # append boot signature
