@@ -29,7 +29,6 @@ _start:                  # code entry point
      call draw_snake
      # clean old pixels after each move
      clean_pixels:
-     xor %eax, %eax
      movw qs, %ax
      cmpw size, %ax
      jle loop
@@ -58,6 +57,10 @@ pushq:
      movw %bx, (%ecx)
      # --------------------------
      movw qend, %ax
+     cmp $200, %ax
+     jle skip1
+     movw $0x6, %ax
+     skip1:
      add $2, %ax
      movw %ax, qend
      # --------------------------
@@ -83,13 +86,17 @@ popq:
      #
      xor %ebx, %ebx
      movw (%ecx), %bx
-     movw $0xFFFF, (%ecx)
+     movw $0x0000, (%ecx)
 
      movw mem_seg, %cx
      movb %bl, 4(%ecx)
      movb %bh, 6(%ecx)
      # --------------------------
      movw qstart, %ax
+     cmp $200, %ax
+     jle skip2
+     movw $0x6, %ax
+     skip2:
      add $2, %ax
      movw %ax, qstart
      # --------------------------
@@ -132,20 +139,17 @@ handle_keypress:
 
      move_left:
      sub $1,(%ecx)
-     movb %ah, direction
      jmp move
      move_right:
      add $1,(%ecx)
-     movb %ah, direction
      jmp move
      move_up:
      sub $1,2(%ecx)
-     movb %ah, direction
      jmp move
      move_down:
      add $1,2(%ecx)
-     movb %ah, direction
      move:
+     movb %ah, direction
      ret
 # ----------------------------------------------------
 draw_snake:
@@ -198,13 +202,27 @@ draw_fruit:
      push %bp
      mov %sp, %bp
 
+     _df:
      xor %ax,%ax
      int $0x1a # CX:DX = number of clock ticks since midnight
-
      and $0x007F, %dx
      pushw %dx
-     pushw $100
+
+     int $0x1a # CX:DX = number of clock ticks since midnight
+     and $0x007F, %dx
+     pushw %dx
+
      pushw $0x3
+
+     movw mem_seg, %bx
+     # get pixel color
+     movb $0xD, %ah
+     movw 2(%esp), %cx # column
+     movw 4(%esp), %dx # row
+     int $0x10
+     cmp $0x4, %al
+     je _df
+     
      call draw_pixel
      add $6, %esp
 
@@ -227,6 +245,10 @@ clear_pixel:
      pop %bp
      ret
 # ----------------------------------------------------
+# al = character
+# ah = 0x0e
+# bh = page number
+# bl = color
 print_character:
     push %bp
     mov %sp, %bp
@@ -235,15 +257,15 @@ print_character:
     movb $0x00, %bh
     movb $0x07, %bl
     movb $0x0e, %ah
-# al = character
-# ah = 0x0e
-# bh = page number
-# bl = color
     int $0x10
     
     pop %bp
     ret
 # ----------------------------------------------------
+# ah = 0ch (write graphics pixel)
+# al = color
+# cx = column (x)
+# dx = row (y)
 draw_pixel:
      push %bp
      mov %sp, %bp
@@ -254,15 +276,14 @@ draw_pixel:
 
      movb $0x0C, %ah
      movb $0x0, %bh
-# ah = 0ch (write graphics pixel)
-# al = color
-# cx = column (x)
-# dx = row (y)
      int $0x10
 
      pop %bp
      ret
 # ----------------------------------------------------
+# get key from keyboard
+# al = ascii character
+# ah = code of pressed key
 get_key:
      xorw %ax, %ax
      movb $0x1, %ah
@@ -275,9 +296,6 @@ get_key:
 
      _gk:
      xorw %ax, %ax
-# get key from keyboard
-# al = ascii character
-# ah = code of pressed key
      int $0x16
 
      ret
