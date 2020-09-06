@@ -1,3 +1,15 @@
-Bootsector game
+# Simple bootsector game - Snake
 
-Inspired by: https://www.codeproject.com/Articles/664165/Writing-a-boot-loader-in-Assembly-and-C-Part
+![](https://github.com/arturfog/bootsector_game/raw/master/assets/snake.gif)
+
+## How to play 
+
+It can be played using bochs.
+
+```sh
+bochs -f bochs.txt
+```
+
+## Support this project
+- Star GitHub repository :star:
+- Create pull requests, submit bugs or suggest new features
